@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include "ASSDTerminal.h"
-
-#include <linux/ioctl.h>
-#include "assd.h"
-
+#include <sys/ioctl.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <fcntl.h>
-
+#include "assd.h"
+#include "ASSDTerminal.h"
 // #include <utils/Log.h>
 
 #define LOG_TAG "libassd"
