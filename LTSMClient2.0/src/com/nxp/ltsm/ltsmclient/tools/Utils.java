@@ -22,7 +22,10 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.lang.reflect.Field;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -61,6 +64,12 @@ public class Utils {
      *            the byte array to be converted
      * @return the output string
      */
+    /** first app user */
+    public static final int AID_APP = 10000;
+
+    /** offset for uid ranges for each user */
+    public static final int AID_USER = 100000;
+
     public static String arrayToHex(byte[] data) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < data.length; i++) {
@@ -473,14 +482,18 @@ public class Utils {
     }
     public static String getCallingAppPkg(Context context) {
         String TAG = "getCallingAppPkg";
-        String packageName = null;
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT_WATCH) {
+        String packageName = "";
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT_WATCH) {
 
+            packageName = getForeGroundKK(context);
+
+        }
+        else if (Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.LOLLIPOP) {
             packageName = getForeGroundL(context);
         }
         else
         {
-            packageName = getForeGroundKK(context);
+            packageName = getForeGroundM(context);
         }
         Log.i(TAG,"packageName : " + packageName);
         return packageName;
@@ -503,6 +516,7 @@ public class Utils {
 
     static String getForeGroundL(Context context)
     {
+      String TAG = "getForeGroundL";
         final int PROCESS_STATE_TOP = 2;
         RunningAppProcessInfo currentInfo = null;
         Field field = null;
@@ -525,6 +539,110 @@ public class Utils {
             }
         }
         return currentInfo.processName;
+    }
+    static String getForeGroundM(Context context)
+    {
+        String TAG = "getForeGroundM";
+        Log.i(TAG,"Enter");
+        return getForegroundAppM();
+    }
+
+    public static String getForegroundAppM() {
+        String TAG = "getForegroundAppM";
+        File[] files = new File("/proc").listFiles();
+        int lowestOomScore = Integer.MAX_VALUE;
+        String foregroundProcess = null;
+
+        for (File file : files) {
+            if (!file.isDirectory()) {
+                continue;
+            }
+
+            int pid;
+            try {
+                pid = Integer.parseInt(file.getName());
+            } catch (NumberFormatException e) {
+                continue;
+            }
+
+            try {
+                String cgroup = read(String.format("/proc/%d/cgroup", pid));
+
+                String[] lines = cgroup.split("\n");
+
+                if (lines.length != 2) {
+                    continue;
+                }
+
+                String cpuSubsystem = lines[0];
+                String cpuaccctSubsystem = lines[1];
+
+                if (!cpuaccctSubsystem.endsWith(Integer.toString(pid))) {
+                    // not an application process
+                    continue;
+                }
+
+                if (cpuSubsystem.endsWith("bg_non_interactive")) {
+                    // background policy
+                    continue;
+                }
+
+                String cmdline = read(String.format("/proc/%d/cmdline", pid)).trim();
+                if (cmdline.contains("com.android.systemui")) {
+                    continue;
+                }
+
+                int uid = Integer.parseInt(
+                        cpuaccctSubsystem.split(":")[2].split("/")[1].replace("uid_", ""));
+                if (uid >= 1000 && uid <= 1038) {
+                    // system process
+                    continue;
+                }
+
+                int appId = uid - AID_APP;
+                int userId = 0;
+                // loop until we get the correct user id.
+                // 100000 is the offset for each user.
+                while (appId > AID_USER) {
+                    appId -= AID_USER;
+                    userId++;
+                }
+
+                if (appId < 0) {
+                    continue;
+                }
+
+                File oomScoreAdj = new File(String.format("/proc/%d/oom_score_adj", pid));
+                if (oomScoreAdj.canRead()) {
+                    int oomAdj = Integer.parseInt(read(oomScoreAdj.getAbsolutePath()));
+                    if (oomAdj != 0) {
+                        continue;
+                    }
+                }
+
+                int oomscore = Integer.parseInt(read(String.format("/proc/%d/oom_score", pid)));
+                if (oomscore < lowestOomScore) {
+                    lowestOomScore = oomscore;
+                    foregroundProcess = cmdline;
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return foregroundProcess;
+    }
+
+    private static String read(String path) throws IOException {
+        StringBuilder output = new StringBuilder();
+        BufferedReader reader = new BufferedReader(new FileReader(path));
+        output.append(reader.readLine());
+        for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+            output.append('\n').append(line);
+        }
+        reader.close();
+        return output.toString();
     }
 
     public static List getINstalledApps(Context context){
