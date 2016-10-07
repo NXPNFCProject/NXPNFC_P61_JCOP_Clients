@@ -117,4 +117,23 @@ public final class LtsmService{
             throw new IOException("RemoteException in LTSM  transceive connection()");
         }
     }
+    /**
+     * This API retrieves the caller application package name
+     * @return Bundle :- Exception type and message if there is exception else returns string which is package name
+     * @throws Exception If a failure occurred during secure element transceive operation
+     */
+    public static synchronized Bundle getCallingAppPkg(String pkg, IBinder binder) throws IOException{
+        try{
+            Bundle result = mINxpExtrasService.getCallingAppPkg(pkg, binder);
+            if(result.getInt("e") == 0x00){
+                Log.e(TAG, "retreive callers package name successful");
+                return result;
+            }else {
+                throw new IOException("cannot retreive callers package name");
+            }
+        }catch(Exception e){
+            Log.e(TAG, "Exception in retreiving callers package name", e);
+            throw new IOException("RemoteException in getCallingApp package name");
+        }
+    }
 }

@@ -77,6 +77,13 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
 
     public LTSMCommunicator(Context context) {
         LTSMCommunicator.context = context;
+        try {
+            mLtsmService = LtsmService.createLtsmServiceInterface();
+        } catch (Exception e) {
+                Log.i(LOG_TAG, "retrieving LtsmService failed");
+                e.printStackTrace();
+            }
+
 
     }
 
@@ -116,7 +123,7 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
         try{
             createVcProcedure :
             {
-            currentWalletPkg = Utils.getCallingAppPkg(context);
+            currentWalletPkg = getCallingAppPkg(context);
             boolean available = Utils.checkRegistryAvail(context);
             if(!available){
                 available = Utils.checkRegBackupAvail();
@@ -294,7 +301,7 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
              * sometime it is possible that some other app may come to foreground which will give wrong data
              * So get calling app pkg name as soon as it enters the method
              * */
-            currentWalletPkg = Utils.getCallingAppPkg(context);
+            currentWalletPkg = getCallingAppPkg(context);
             currentWalletPkg_hash = Utils.createSha(currentWalletPkg);
 
             boolean available = Utils.checkRegistryAvail(context);
@@ -402,7 +409,7 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
         try{
             getVcStatusProcedure :
             {
-            currentWalletPkg = Utils.getCallingAppPkg(context);
+            currentWalletPkg = getCallingAppPkg(context);
 
             Log.i(TAG, "vcEntry : " + vcEntry);
             Log.i(TAG, "pkg : " + currentWalletPkg);
@@ -545,7 +552,7 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
             byte[] vcState              = new byte[]{};
             List<TLV> getStatusRspTlvs;
 
-            String pkg = Utils.getCallingAppPkg(context);
+            String pkg = getCallingAppPkg(context);
             Log.i(TAG, "vcEntry : " + vcEntry);
             Log.i(TAG, "pkg : " + pkg);
 
@@ -781,7 +788,7 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
         byte[] rData = new byte[0];
         int stat  = Data.FAILED;
 
-        String pkg = Utils.getCallingAppPkg(context);
+        String pkg = getCallingAppPkg(context);
 
         stat = ltsmStart();
         if(stat != Data.SW_NO_ERROR){
@@ -830,7 +837,7 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
         byte[] smAid = new byte[]{};
         TLV tlvResult = null;
 
-        String pkg = Utils.getCallingAppPkg(context);
+        String pkg = getCallingAppPkg(context);
 
         int i,stat;
         stat = ltsmStart();
@@ -1878,7 +1885,6 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
 
             bundle = new Bundle();
             try {
-                mLtsmService = LtsmService.createLtsmServiceInterface();
                 errorCause = "Open Secure Element: Failed";
                 if(mLtsmService != null){
                     bundle = mLtsmService.open("com.nxp.ltsm.ltsmclient",mBinder);
@@ -1960,6 +1966,30 @@ public class LTSMCommunicator extends ILTSMClient.Stub {
         return bundle.getByteArray("out");
     }
 
+    /*******************************************************
+     *
+     *Retreive callers package name
+     *
+     ********************************************************/
+    public static String getCallingAppPkg(Context mContext) throws RemoteException {
+
+        Log.i(LOG_TAG,"getCallingAppPkg ENTER");
+        bundle = new Bundle();
+        try {
+            if(mLtsmService != null){
+                bundle = mLtsmService.getCallingAppPkg("com.nxp.ltsm.ltsmclient", mBinder);
+                Log.i(LOG_TAG, "Calling package name = " +bundle.getString("packageName"));
+            }
+            if (bundle == null) {
+                Log.i(LOG_TAG,"exchange APDU failed");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return bundle.getString("packageName");
+    }
 
     /*******************************************************
      *
