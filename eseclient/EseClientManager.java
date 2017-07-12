@@ -26,6 +26,7 @@ import java.lang.reflect.Method;
 
 
 public final class EseClientManager{
+    private static final boolean BUILD_ANDROID_O = true;
     private static final String TAG = "EseClientManager";
     private static Object sNfcService, sSpiService;
     private static Object sNxpNfcService, sNxpNfcExtrasService;
@@ -82,23 +83,61 @@ public final class EseClientManager{
 
     private Object getNxpNfcServiceInterface() {
         Object obj = null;
-        if(sNfcService == null)
-        {
-            Log.e(TAG, "could not retrieve NFC service");
-            throw new UnsupportedOperationException();
-        }
-        try {
-            Method[] mthd = sNfcService.getClass().getMethods();
-            for(int i=0; i<mthd.length; i++) {
-                //Log.e(TAG, "mthd["+i+"] = "+ mthd[i].getName());
-                if(mthd[i].getName().compareTo("getNxpNfcAdapterInterface") == 0) {
-                    getNxpAdapterMthd = mthd[i];
+        if(BUILD_ANDROID_O) {
+            Object nfcAdapterVendorInterface = null, nxpNfcServiceInterface = null;
+            Class nxpNfcStub = null;
+            if (sNfcService == null)
+            {
+                Log.e(TAG, "could not retrieve NFC service");
+                throw new UnsupportedOperationException();
+            }
+            try {
+                Method getNxpAdapterMthd = sNfcService.getClass().
+                        getDeclaredMethod("getNfcAdapterVendorInterface", String.class);
+                nfcAdapterVendorInterface = getNxpAdapterMthd.invoke(sNfcService, "nxp");
+            } catch (Exception e) {
+                Log.e(TAG, "getNfcAdapterVendorInterface method not found", e);
+                throw new UnsupportedOperationException();
+            }
+            try {
+                nxpNfcStub = System.class.forName("com.nxp.nfc.INxpNfcAdapter$Stub");
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+                throw new UnsupportedOperationException();
+            }
+            if (nxpNfcStub != null) {
+                try {
+                    Method asInterfaceMethod = nxpNfcStub.getDeclaredMethod("asInterface",
+                            IBinder.class);
+                    nxpNfcServiceInterface = asInterfaceMethod.invoke(nxpNfcStub,
+                            nfcAdapterVendorInterface);
+                } catch (Exception e) {
+                    Log.e(TAG, "nxp-asInterface method not found", e);
+                    throw new UnsupportedOperationException();
                 }
             }
-            obj = getNxpAdapterMthd.invoke(sNfcService);
-        } catch (Exception e) {
-            Log.e(TAG, "getNxpNfcAdapterInterface method not found", e);
-            throw new UnsupportedOperationException();
+            obj = nxpNfcServiceInterface;
+        }
+        else
+        {
+            if(sNfcService == null)
+            {
+                Log.e(TAG, "could not retrieve NFC service");
+                throw new UnsupportedOperationException();
+            }
+            try {
+                Method[] mthd = sNfcService.getClass().getMethods();
+                for(int i=0; i<mthd.length; i++) {
+                    //Log.e(TAG, "mthd["+i+"] = "+ mthd[i].getName());
+                    if(mthd[i].getName().compareTo("getNxpNfcAdapterInterface") == 0) {
+                        getNxpAdapterMthd = mthd[i];
+                    }
+                }
+                obj = getNxpAdapterMthd.invoke(sNfcService);
+            } catch (Exception e) {
+                Log.e(TAG, "getNxpNfcAdapterInterface method not found", e);
+                throw new UnsupportedOperationException();
+            }
         }
         return obj;
     }
