@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="org.simalliance.openmobileapi.service"
-      android:sharedUserId="org.simalliance.uid.openmobileapi"
+      android:sharedUserId="android.uid.system"
       android:versionCode="5"
       android:versionName="3.2.1">
 

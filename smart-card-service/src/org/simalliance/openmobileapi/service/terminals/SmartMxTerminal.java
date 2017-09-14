@@ -15,7 +15,7 @@
 
 
  * Contributed by: Giesecke & Devrient GmbH.*/
-  /******************************************************************************
+ /******************************************************************************
   *
   *  The original Work has been changed by NXP Semiconductors.
   *
@@ -34,16 +34,17 @@
   *  limitations under the License.
   *
   ******************************************************************************/
-
 package org.simalliance.openmobileapi.service.terminals;
 
 import android.content.Context;
-import android.nfc.INfcAdapterExtras;
-import android.nfc.NfcAdapter;
+import com.nxp.eseclient.EseClientManager;
+import com.nxp.eseclient.EseClientServicesAdapterBuilder;
+import com.nxp.eseclient.EseClientServicesAdapter;
+import com.nxp.intf.INxpExtrasService;
+import java.io.IOException;
 import android.os.Binder;
 import android.os.Bundle;
 import android.util.Log;
-
 import java.util.MissingResourceException;
 import java.util.NoSuchElementException;
 
@@ -52,23 +53,39 @@ import org.simalliance.openmobileapi.service.SmartcardService;
 import org.simalliance.openmobileapi.service.Terminal;
 
 
-
 public class SmartMxTerminal extends Terminal {
 
-    private INfcAdapterExtras ex;
+    private static EseClientManager mEseManager;
+    private static EseClientServicesAdapter mEseClientServicesAdapter;
+    private static EseClientServicesAdapterBuilder mEseClientServicesAdapterBuilder;
+    private static INxpExtrasService mINxpExtrasService;
+    public static int type = EseClientManager.NFC;
     private Binder binder = new Binder();
     private String TAG = "SmartMxTerminal";
+
     public SmartMxTerminal(Context context) {
         super(SmartcardService._eSE_TERMINAL, context);
+        try{
+        mEseManager = EseClientManager.getInstance();
+        mEseManager.initialize();
+        INxpExtrasService NxpExtrasServiceIntf = null;
+        mEseClientServicesAdapterBuilder = new EseClientServicesAdapterBuilder();
+        mEseClientServicesAdapter = mEseClientServicesAdapterBuilder.getEseClientServicesAdapterInstance(type);
+        NxpExtrasServiceIntf = mEseClientServicesAdapter.getNxpExtrasService();
+        mINxpExtrasService = NxpExtrasServiceIntf;
+        }
+        catch(Exception e)
+        {
+            Log.d(TAG, e.getMessage());
+        }
     }
 
     public boolean isCardPresent() throws CardException {
         try {
-            NfcAdapter adapter =  NfcAdapter.getDefaultAdapter(mContext);
-            if(adapter == null) {
+            if(mINxpExtrasService == null) {
                 throw new CardException("Cannot get NFC Default Adapter");
             }
-            return adapter.isEnabled();
+            return mINxpExtrasService.isEnabled();
         } catch (Exception e) {
             return false;
         }
@@ -76,18 +93,12 @@ public class SmartMxTerminal extends Terminal {
 
     @Override
     protected void internalConnect() throws CardException {
-        NfcAdapter adapter =  NfcAdapter.getDefaultAdapter(mContext);
-        if(adapter == null) {
+        if(mINxpExtrasService == null) {
             throw new CardException("Cannot get NFC Default Adapter");
         }
 
-        ex = adapter.getNfcAdapterExtrasInterface();
-        if(ex == null)  {
-            throw new CardException("Cannot get NFC Extra interface");
-        }
-
         try {
-            Bundle b = ex.open("org.simalliance.openmobileapi.service", binder);
+            Bundle b = mINxpExtrasService.open("org.simalliance.openmobileapi.service", binder);
             if (b == null) {
                 throw new CardException("open SE failed");
             }
@@ -100,8 +111,9 @@ public class SmartMxTerminal extends Terminal {
 
     @Override
     protected void internalDisconnect() throws CardException {
+
         try {
-            Bundle b = ex.close("org.simalliance.openmobileapi.service", binder);
+            Bundle b = mINxpExtrasService.close("org.simalliance.openmobileapi.service", binder);
             if (b == null) {
                 throw new CardException("close SE failed");
             }
@@ -112,8 +124,9 @@ public class SmartMxTerminal extends Terminal {
 
     @Override
     protected byte[] internalTransmit(byte[] command) throws CardException {
+
         try {
-            Bundle b = ex.transceive("org.simalliance.openmobileapi.service", command);
+            Bundle b = mINxpExtrasService.transceive("org.simalliance.openmobileapi.service", command);
             if (b == null) {
                 throw new CardException("exchange APDU failed");
             }
@@ -127,7 +140,7 @@ public class SmartMxTerminal extends Terminal {
     public byte[] getAtr() {
         byte uid[] = null;
         try {
-            uid = ex.getSecureElementUid("org.simalliance.openmobileapi.service");
+            uid = mINxpExtrasService.getSecureElementUid("org.simalliance.openmobileapi.service");
             return uid;
         } catch (Exception e) {
             Log.d(TAG, e.toString());

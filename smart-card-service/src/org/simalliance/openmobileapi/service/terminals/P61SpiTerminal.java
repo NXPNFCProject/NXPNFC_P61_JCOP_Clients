@@ -16,7 +16,25 @@
 /*
  * Contributed by: Giesecke & Devrient GmbH.
  */
-
+  /******************************************************************************
+  *
+  *  The original Work has been changed by NXP Semiconductors.
+  *
+  *  Copyright (C) 2015 NXP Semiconductors
+  *
+  *  Licensed under the Apache License, Version 2.0 (the "License");
+  *  you may not use this file except in compliance with the License.
+  *  You may obtain a copy of the License at
+  *
+  *  http://www.apache.org/licenses/LICENSE-2.0
+  *
+  *  Unless required by applicable law or agreed to in writing, software
+  *  distributed under the License is distributed on an "AS IS" BASIS,
+  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  *  See the License for the specific language governing permissions and
+  *  limitations under the License.
+  *
+  ******************************************************************************/
 package src.org.simalliance.openmobileapi.service.terminals;
 
 import android.content.Context;
@@ -24,7 +42,10 @@ import android.os.Binder;
 import android.os.Bundle;
 import android.util.Log;
 import android.content.pm.PackageManager;
-import android.ese.spi.EseSpiAdapter;
+import com.nxp.eseclient.EseClientManager;
+import com.nxp.eseclient.EseClientServicesAdapterBuilder;
+import com.nxp.eseclient.EseClientServicesAdapter;
+import com.nxp.intf.INxpExtrasService;
 
 import java.util.MissingResourceException;
 import java.util.NoSuchElementException;
@@ -38,20 +59,30 @@ public class P61SpiTerminal extends Terminal {
 
     private Binder binder = new Binder();
     private String TAG = "P61SPITerminal";
-    EseSpiAdapter mSpiAdapter;
+    private static EseClientManager mEseManager;
+    private static EseClientServicesAdapter mEseClientServicesAdapter;
+    private static EseClientServicesAdapterBuilder mEseClientServicesAdapterBuilder;
+    private static INxpExtrasService mINxpExtrasService;
+    public static Integer type = EseClientManager.SPI;
+
 
     public P61SpiTerminal(Context context) {
         super(SmartcardService._P61Spi_TERMINAL, context);
 
-        try {
-            mSpiAdapter =  EseSpiAdapter.getSpiAdapter(mContext);
-            if(mSpiAdapter == null) {
-                throw new CardException("Cannot get SPI Default Adapter");
-            }
-
-        } catch (Exception e) {
+        try{
+        mEseManager = EseClientManager.getInstance();
+        mEseManager.initialize();
+        INxpExtrasService NxpExtrasServiceIntf = null;
+        mEseClientServicesAdapterBuilder = new EseClientServicesAdapterBuilder();
+        mEseClientServicesAdapter = mEseClientServicesAdapterBuilder.getEseClientServicesAdapterInstance(type);
+        NxpExtrasServiceIntf = mEseClientServicesAdapter.getNxpExtrasService();
+        mINxpExtrasService = NxpExtrasServiceIntf;
         }
-    }
+        catch(Exception e)
+        {
+            Log.d(TAG, e.getMessage());
+        }
+   }
 
     public boolean isCardPresent() throws CardException {
 
@@ -62,8 +93,8 @@ public class P61SpiTerminal extends Terminal {
     protected void internalConnect() throws CardException {
         //spi initialization
          try {
-             if(!mSpiAdapter.isEnabled()){
-                 mSpiAdapter.enable();
+             if(!mINxpExtrasService.isEnabled()){
+                 mINxpExtrasService.open("org.simalliance.openmobileapi.service", binder);
              }
          } catch (Exception e) {
              throw new CardException("open SE failed");
@@ -76,7 +107,7 @@ public class P61SpiTerminal extends Terminal {
     protected void internalDisconnect() throws CardException {
         //spi deinitialization
         try {
-            if(mSpiAdapter.isEnabled()){
+            if(mINxpExtrasService.isEnabled()){
                 // mSpiAdapter.disable();
             }
         } catch (Exception e) {
@@ -88,11 +119,11 @@ public class P61SpiTerminal extends Terminal {
     protected byte[] internalTransmit(byte[] command) throws CardException {
 
         try {
-            byte[] respData = mSpiAdapter.exchangeData("org.simalliance.openmobileapi.service", command);
-            if (respData == null) {
+            Bundle b = mINxpExtrasService.transceive("org.simalliance.openmobileapi.service", command);
+            if (b == null) {
                 throw new CardException("exchange APDU failed");
             }
-            return respData;
+            return b.getByteArray("out");
         } catch (Exception e) {
             throw new CardException("exchange APDU failed");
         }

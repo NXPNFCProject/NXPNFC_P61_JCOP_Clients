@@ -396,6 +396,8 @@ public final class SmartcardService extends Service {
                     isCardPresent = terminal.isCardPresent();
                 } catch (CardException e) {
                     isCardPresent = false;
+                    Log.d(_TAG," Exception in initializeAccessControl ");
+                    e.printStackTrace();
                 }
 
                 Log.i(_TAG,"terminal Name " + terminal.getName());
@@ -531,6 +533,8 @@ public final class SmartcardService extends Service {
                         + " CreateReaders Error: "
                         + ((t.getMessage() != null) ? t.getMessage()
                                 : "unknown"));
+            Log.v(_TAG," Exception in createBuildinTerminals");
+             t.printStackTrace();
             }
         }
     }
@@ -639,7 +643,8 @@ public final class SmartcardService extends Service {
                 }
             }
         } catch (Throwable exp) {
-            // nothing to to
+            Log.v(_TAG," Exception in getBuildinTerminalClasses");
+             exp.printStackTrace();
         }
         return classes.toArray();
     }

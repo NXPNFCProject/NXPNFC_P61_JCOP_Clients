@@ -15,7 +15,6 @@
 
 
  * Contributed by: Giesecke & Devrient GmbH.
-*/
 
 package org.simalliance.openmobileapi.service.terminals;
 
@@ -177,4 +176,4 @@ final class ASSDTerminal extends Terminal {
     private native boolean IsPresent() throws Exception;
 
     private native byte[] Transmit(byte[] command) throws Exception;
-}
+}*/
